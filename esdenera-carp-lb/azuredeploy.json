@@ -56,7 +56,10 @@
        "name": "[variables('imageSKU')]",
        "product": "[variables('imageOffer')]",
        "publisher": "[variables('imagePublisher')]"
-    }
+    },
+    "configPF": "[concat('pf:\n rule:\n  r1-health-in:\n   action: pass\n   direction: in\n   protocol: tcp\n   to:\n    port: ', variables('healthPort'), '\n')]",
+    "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), '...\n'))]",
+    "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), '...\n'))]"
   },
   "resources": [
     {
@@ -119,6 +122,7 @@
         "osProfile": {
           "computerName": "[variables('carpLBVM1Name')]",
           "adminUsername": "[parameters('adminUsername')]",
+          "customData": "[variables('carpLBVM1customData')]",
           "linuxConfiguration": {
             "disablePasswordAuthentication": true,
             "ssh": {
@@ -185,6 +189,7 @@
         "osProfile": {
           "computerName": "[variables('carpLBVM2Name')]",
           "adminUsername": "[parameters('adminUsername')]",
+          "customData": "[variables('carpLBVM2customData')]",
           "linuxConfiguration": {
             "disablePasswordAuthentication": true,
             "ssh": {
