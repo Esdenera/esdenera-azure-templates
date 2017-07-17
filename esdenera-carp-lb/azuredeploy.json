@@ -125,7 +125,7 @@
             "ssh": {
               "publicKeys": [
                 {
-                  "path": "/var/home/[parameters('adminUsername')]/.ssh/authorized_keys",
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
                   "keyData": "[parameters('sshKeyData')]"
                 }
               ]
@@ -191,7 +191,7 @@
             "ssh": {
               "publicKeys": [
                 {
-                  "path": "/var/home/[parameters('adminUsername')]/.ssh/authorized_keys",
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
                   "keyData": "[parameters('sshKeyData')]"
                 }
               ]
