@@ -14,13 +14,6 @@
       "metadata": {
         "description": "SSH RSA public key as a string"
       }
-    },
-    "carpLBPrefix": {
-      "defaultValue": "carpLB",
-      "type": "String",
-      "metadata": {
-        "description": "default prefix for resource names"
-      }
     }
   },
   "variables": {
@@ -37,6 +30,12 @@
     "carpLBVM2PublicIPName": "carpLBVM2_PublicIP",
     "carpLBVM1Name": "carpLBVM1",
     "carpLBVM2Name": "carpLBVM2",
+    "carpLBVM1privateIPAddress": "10.42.0.4",
+    "carpLBVM2privateIPAddress": "10.42.0.5",
+    "carpLBVnetPrefix": "10.0.0.0/8",
+    "carpLBSubnetPrefix": "10.42.0.0/24",
+    "healthIface": "carp0",
+    "healthPort": 8444,
     "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('carpLBLBName'))]",
     "lbIDFE": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontEnd')]",
     "lbIDBE": "[concat(variables('lbID'),'/backendAddressPools/BackendPool1')]",
@@ -266,8 +265,8 @@
             "name": "health",
             "properties": {
               "protocol": "Http",
-              "port": 8444,
-              "requestPath": "/tornado/health/linkstate/carp0",
+              "port": "[variables('healthPort')]",
+              "requestPath": "[concat('/tornado/health/linkstate/', variables('healthIface'))]",
               "intervalInSeconds": 15,
               "numberOfProbes": 2
             }
@@ -292,7 +291,7 @@
           {
             "name": "ipconfig1",
             "properties": {
-              "privateIPAddress": "10.42.0.4",
+              "privateIPAddress": "[variables('carpLBVM1privateIPAddress')]",
               "privateIPAllocationMethod": "Static",
               "publicIPAddress": {
                 "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM1PublicIPName'))]"
@@ -330,7 +329,7 @@
           {
             "name": "ipconfig1",
             "properties": {
-              "privateIPAddress": "10.42.0.5",
+              "privateIPAddress": "[variables('carpLBVM2privateIPAddress')]",
               "privateIPAllocationMethod": "Static",
               "publicIPAddress": {
                 "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM2PublicIPName'))]"
@@ -403,7 +402,7 @@
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
-            "10.0.0.0/8"
+            "[variables('carpLBVnetPrefix')]"
           ]
         },
         "dhcpOptions": {
@@ -413,7 +412,7 @@
           {
             "name": "[variables('carpLBSubnetName')]",
             "properties": {
-              "addressPrefix": "10.42.0.0/24"
+              "addressPrefix": "[variables('carpLBSubnetPrefix')]"
             }
           }
         ],
