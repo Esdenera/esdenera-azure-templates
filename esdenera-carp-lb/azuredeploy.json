@@ -57,9 +57,15 @@
        "product": "[variables('imageOffer')]",
        "publisher": "[variables('imagePublisher')]"
     },
+    "configHealth": "[concat('system:\n webapi:\n  health:\n   port: ', variables('healthPort'), '\n')]",
+    "configCARPip": "10.50.0.1",
+    "configCARPvhid": "10",
+    "configCARPpass": "[uniqueString(resourceGroup().id, deployment().name)]",
     "configPF": "[concat('pf:\n rule:\n  r1-health-in:\n   action: pass\n   direction: in\n   protocol: tcp\n   to:\n    port: ', variables('healthPort'), '\n')]",
-    "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), '...\n'))]",
-    "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), '...\n'))]"
+    "configCARPmaster": "[concat('interface:\n carp:\n  ', variables('healthIface'), ':\n   address:\n    - ', variables('configCARPip'), '/32: {}\n   vhid: ', variables('configCARPvhid'), '\n   pass: ', variables('configCARPpass'), '\n   carppeer: ', variables('carpLBVM2privateIPAddress'), '\n   advskew: 50\n   carpdev: en0\n   virtualmac: yes\n')]",
+    "configCARPbackup": "[concat('interface:\n carp:\n  ', variables('healthIface'), ':\n   address:\n    - ', variables('configCARPip'), '/32: {}\n   vhid: ', variables('configCARPvhid'), '\n   pass: ', variables('configCARPpass'), '\n   carppeer: ', variables('carpLBVM1privateIPAddress'), '\n   advskew: 150\n   carpdev: en0\n   virtualmac: yes\n')]",
+    "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configCARPmaster'), '...\n'))]",
+    "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configCARPbackup'), '...\n'))]"
   },
   "resources": [
     {
