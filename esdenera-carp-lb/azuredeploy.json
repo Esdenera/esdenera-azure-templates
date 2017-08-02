@@ -45,7 +45,7 @@
     "imagePublisher": "esdenera",
     "imageOffer": "esdenera-firewall-3",
     "imageSKU": "fwcm1",
-    "imageVersion": "3.1.09",
+    "imageVersion": "3.2.00",
     "imageReference": {
        "publisher": "[variables('imagePublisher')]",
        "offer": "[variables('imageOffer')]",
@@ -64,8 +64,8 @@
     "configPF": "[concat('pf:\n rule:\n  r1-health-in:\n   action: pass\n   direction: in\n   protocol: tcp\n   to:\n    port: ', variables('healthPort'), '\n  r2-pfsync-in:\n   action: pass\n   protocol: pfsync\n   quick: true\n   options:\n    state:\n     keep:\n      no-sync: true\n')]",
     "configCARPmaster": "[concat('interface:\n', ' pfsync:\n  pfsync0:\n   syncdev: en0\n   syncpeer: ', variables('carpLBVM2privateIPAddress'), '\n   up: true\n', ' carp:\n  ', variables('healthIface'), ':\n   address:\n    - ', variables('configCARPip'), '/32: {}\n   vhid: ', variables('configCARPvhid'), '\n   pass: ', variables('configCARPpass'), '\n   carppeer: ', variables('carpLBVM2privateIPAddress'), '\n   advskew: 50\n   carpdev: en0\n   virtualmac: yes\n')]",
     "configCARPbackup": "[concat('interface:\n', ' pfsync:\n  pfsync0:\n   syncdev: en0\n   syncpeer: ', variables('carpLBVM1privateIPAddress'), '\n   up: true\n',  ' carp:\n  ', variables('healthIface'), ':\n   address:\n    - ', variables('configCARPip'), '/32: {}\n   vhid: ', variables('configCARPvhid'), '\n   pass: ', variables('configCARPpass'), '\n   carppeer: ', variables('carpLBVM1privateIPAddress'), '\n   advskew: 150\n   carpdev: en0\n   virtualmac: yes\n')]",
-    "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configCARPmaster'), '...\n'))]",
-    "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configCARPbackup'), '...\n'))]"
+    "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configCARPmaster'), '...\n'))]",
+    "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configCARPbackup'), '...\n'))]"
   },
   "resources": [
     {
