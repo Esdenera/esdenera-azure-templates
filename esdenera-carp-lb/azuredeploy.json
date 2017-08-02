@@ -269,6 +269,86 @@
                 "id": "[variables('lbIDProbe')]"
               }
             }
+          },
+          {
+            "name": "LBhttp",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 80,
+              "backendPort": 80,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Tcp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBhttps",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 443,
+              "backendPort": 443,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Tcp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBesp500",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 500,
+              "backendPort": 500,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Udp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBesp4500",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 4500,
+              "backendPort": 4500,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Udp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
           }
         ],
         "probes": [
