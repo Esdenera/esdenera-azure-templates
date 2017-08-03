@@ -93,7 +93,7 @@
                 "r2-pfsync-in": {
                     "action": "pass",
                     "protocol": "pfsync",
-                    "quick": true",
+                    "quick": true,
                     "options": {
                         "state": {
                             "keep": {
@@ -104,14 +104,14 @@
                 }
             }
         }
-    }
+    },
     "configCARPmaster": {
         "interface": {
             "pfsync": {
                 "pfsync0": {
                     "syncdev": "en0",
                     "syncpeer": "[variables('carpLBVM2privateIPAddress')]",
-                    "up": true,
+                    "up": true
                 }
             },
             "carp": {
@@ -132,7 +132,7 @@
                 "pfsync0": {
                     "syncdev": "en0",
                     "syncpeer": "[variables('carpLBVM1privateIPAddress')]",
-                    "up": true,
+                    "up": true
                 }
             },
             "carp": {
@@ -146,7 +146,7 @@
                 }
             }
         }
-    }
+    },
     "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPmaster'), '...\n'))]",
     "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPbackup'), '...\n'))]"
   },
