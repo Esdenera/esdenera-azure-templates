@@ -118,7 +118,7 @@
             "carppeer": "[variables('carpLBVM2privateIPAddress')]",
             "advskew": 50,
             "carpdev": "en0",
-            "virtualmac": "yes"
+            "virtualmac": "no"
           }
         }
       }
@@ -139,7 +139,7 @@
             "carppeer": "[variables('carpLBVM1privateIPAddress')]",
             "advskew": 150,
             "carpdev": "en0",
-            "virtualmac": "yes"
+            "virtualmac": "no"
           }
         }
       }
