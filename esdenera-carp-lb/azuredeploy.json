@@ -57,13 +57,96 @@
        "product": "[variables('imageOffer')]",
        "publisher": "[variables('imagePublisher')]"
     },
-    "configHealth": "[concat('system:\n webapi:\n  health:\n   port: ', variables('healthPort'), '\n')]",
-    "configHosts": "[concat(' resolver:\n  host-database:\n   ', variables('carpLBVM1Name'), ':\n   - ', variables('carpLBVM1privateIPAddress'), '\n   ', variables('carpLBVM2Name'), ':\n   - ', variables('carpLBVM2privateIPAddress'), '\n')]",
-    "configCARPvhid": "10",
+    "configHealth": {
+        "system": {
+            "webapi": {
+                "health": {
+                    "port": variables('healthPort')
+                }
+            }
+        }
+    },
+    "configHosts": {
+        "resolver": {
+            "host-database": {
+                 variables('carpLBVM1Name'): [
+                     variables('carpLBVM1privateIPAddress')
+                 ],
+                 variables('carpLBVM2Name'): [
+                     variables('carpLBVM2privateIPAddress')
+                 ]
+            }
+        }
+    },
     "configCARPpass": "[uniqueString(resourceGroup().id, deployment().name)]",
-    "configPF": "[concat('pf:\n rule:\n  r1-health-in:\n   action: pass\n   direction: in\n   protocol: tcp\n   to:\n    port: ', variables('healthPort'), '\n  r2-pfsync-in:\n   action: pass\n   protocol: pfsync\n   quick: true\n   options:\n    state:\n     keep:\n      no-sync: true\n')]",
-    "configCARPmaster": "[concat('interface:\n', ' pfsync:\n  pfsync0:\n   syncdev: en0\n   syncpeer: ', variables('carpLBVM2privateIPAddress'), '\n   up: true\n', ' carp:\n  ', variables('healthIface'), ':\n   vhid: ', variables('configCARPvhid'), '\n   pass: ', variables('configCARPpass'), '\n   carppeer: ', variables('carpLBVM2privateIPAddress'), '\n   advskew: 50\n   carpdev: en0\n   virtualmac: yes\n')]",
-    "configCARPbackup": "[concat('interface:\n', ' pfsync:\n  pfsync0:\n   syncdev: en0\n   syncpeer: ', variables('carpLBVM1privateIPAddress'), '\n   up: true\n',  ' carp:\n  ', variables('healthIface'), ':\n   vhid: ', variables('configCARPvhid'), '\n   pass: ', variables('configCARPpass'), '\n   carppeer: ', variables('carpLBVM1privateIPAddress'), '\n   advskew: 150\n   carpdev: en0\n   virtualmac: yes\n')]",
+    "configPF": {
+        "pf": {
+            "rule": {
+                "r1-health-in": {
+                    "action": "pass",
+                    "direction": "in",
+                    "protocol": "tcp",
+                    "to": {
+                        "port": variables('healthPort')
+                    }
+                }
+                "r2-pfsync-in": {
+                    "action": "pass",
+                    "protocol": "pfsync",
+                    "quick": true",
+                    "options": {
+                        "state": {
+                            "keep": {
+                                "no-sync": true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "configCARPmaster": {
+        "interface": {
+            "pfsync": {
+                "pfsync0": {
+                    "syncdev": "en0",
+                    "syncpeer": variables('carpLBVM2privateIPAddress'),
+                    "up": true,
+                }
+            }
+            "carp": {
+                "carp0": {
+                    "vhid": 10,
+                    "pass": variables('configCARPpass'),
+                    "carppeer": variables('carpLBVM2privateIPAddress'),
+                    "advskew": 50,
+                    "carpdev": "en0",
+                    "virtualmac": "yes"
+                }
+            }
+        }
+    },
+    "configCARPbackup": {
+        "interface": {
+            "pfsync": {
+                "pfsync0": {
+                    "syncdev": "en0",
+                    "syncpeer": variables('carpLBVM1privateIPAddress'),
+                    "up": true,
+                }
+            }
+            "carp": {
+                "carp0": {
+                    "vhid": 10,
+                    "pass": variables('configCARPpass'),
+                    "carppeer": variables('carpLBVM1privateIPAddress'),
+                    "advskew": 150,
+                    "carpdev": "en0",
+                    "virtualmac": "yes"
+                }
+            }
+        }
+    }
     "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPmaster'), '...\n'))]",
     "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPbackup'), '...\n'))]"
   },
