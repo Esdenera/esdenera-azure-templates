@@ -1,0 +1,763 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "defaultValue": "azure-user",
+      "type": "String",
+      "metadata": {
+        "description": "Admin username"
+      }
+    },
+    "sshKeyData": {
+      "type": "String",
+      "metadata": {
+        "description": "SSH RSA public key as a string"
+      }
+    }
+  },
+  "variables": {
+    "carpLBAvsetName": "carpLBAvSet",
+    "carpLBLBName": "carpLBLB",
+    "carpLBLBPublicIPName": "carpLBLB_PublicIP",
+    "carpLBVnetName": "carpLBVnet",
+    "carpLBSubnetName": "carpLBSubnet",
+    "carpLBVM1DiskName": "carpLBVM1_osdisk",
+    "carpLBVM2DiskName": "carpLBVM2_osdisk",
+    "carpLBVM3DiskName": "carpLBVM3_osdisk",
+    "carpLBVM1NICName": "carpLBVM1_NIC",
+    "carpLBVM2NICName": "carpLBVM2_NIC",
+    "carpLBVM3NICName": "carpLBVM3_NIC",
+    "carpLBVM1PublicIPName": "carpLBVM1_PublicIP",
+    "carpLBVM2PublicIPName": "carpLBVM2_PublicIP",
+    "carpLBVM3PublicIPName": "carpLBVM3_PublicIP",
+    "carpLBVM1Name": "carpLBVM1",
+    "carpLBVM2Name": "carpLBVM2",
+    "carpLBVM3Name": "carpLBVM3",
+    "carpLBVM1privateIPAddress": "10.42.0.4",
+    "carpLBVM2privateIPAddress": "10.42.0.5",
+    "carpLBVM3privateIPAddress": "10.42.0.6",
+    "carpLBVnetPrefix": "10.0.0.0/8",
+    "carpLBSubnetPrefix": "10.42.0.0/24",
+    "healthPort": 8444,
+    "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('carpLBLBName'))]",
+    "lbIDFE": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontEnd')]",
+    "lbIDBE": "[concat(variables('lbID'),'/backendAddressPools/BackendPool1')]",
+    "lbIDProbe": "[concat(variables('lbID'),'/probes/health')]",
+    "vmSize": "Standard_A2",
+    "storageAccountType": "Standard_LRS",
+    "imagePublisher": "esdenera",
+    "imageOffer": "esdenera-firewall-3",
+    "imageSKU": "fwcm1",
+    "imageVersion": "3.2.00",
+    "imageReference": {
+      "publisher": "[variables('imagePublisher')]",
+      "offer": "[variables('imageOffer')]",
+      "sku": "[variables('imageSKU')]",
+      "version": "[variables('imageVersion')]"
+    },
+    "imagePlan": {
+      "name": "[variables('imageSKU')]",
+      "product": "[variables('imageOffer')]",
+      "publisher": "[variables('imagePublisher')]"
+    },
+    "configSystem": {
+      "system": {
+        "webapi": {
+          "health": {
+            "port": "[variables('healthPort')]"
+          }
+        },
+        "resolver": {
+          "host-database": {
+            "[variables('carpLBVM1Name')]": [
+              "[variables('carpLBVM1privateIPAddress')]"
+            ],
+            "[variables('carpLBVM2Name')]": [
+              "[variables('carpLBVM2privateIPAddress')]"
+            ],
+            "[variables('carpLBVM3Name')]": [
+              "[variables('carpLBVM3privateIPAddress')]"
+            ]
+          }
+        }
+      }
+    },
+    "configPF": {
+      "pf": {
+        "rule": {
+          "r1-health-in": {
+            "action": "pass",
+            "direction": "in",
+            "protocol": "tcp",
+            "to": {
+              "port": "[variables('healthPort')]"
+            }
+          },
+          "r2-pfsync-in": {
+            "action": "pass",
+            "protocol": "pfsync",
+            "quick": true,
+            "options": {
+              "state": {
+                "keep": {
+                  "no-sync": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "configCARPpass": "[uniqueString(resourceGroup().id, deployment().name)]",
+    "configCARPmaster": {
+      "interface": {
+        "pfsync": {
+          "pfsync0": {
+            "syncdev": "en0",
+            "peer": [
+              "[variables('carpLBVM2privateIPAddress')]",
+              "[variables('carpLBVM3privateIPAddress')]"
+            ],
+            "up": true
+          }
+        },
+        "carp": {
+          "carp0": {
+            "vhid": 10,
+            "pass": "[variables('configCARPpass')]",
+            "peer": [
+              "[variables('carpLBVM2privateIPAddress')]",
+              "[variables('carpLBVM3privateIPAddress')]"
+            ],
+            "advskew": 50,
+            "carpdev": "en0",
+            "virtualmac": "no"
+          }
+        }
+      }
+    },
+    "configCARPbackup1": {
+      "interface": {
+        "pfsync": {
+          "pfsync0": {
+            "syncdev": "en0",
+            "peer": [
+              "[variables('carpLBVM1privateIPAddress')]",
+              "[variables('carpLBVM3privateIPAddress')]"
+            ],
+            "up": true
+          }
+        },
+        "carp": {
+          "carp0": {
+            "vhid": 10,
+            "pass": "[variables('configCARPpass')]",
+            "peer": [
+              "[variables('carpLBVM1privateIPAddress')]",
+              "[variables('carpLBVM3privateIPAddress')]"
+            ],
+            "advskew": 100,
+            "carpdev": "en0",
+            "virtualmac": "no"
+          }
+        }
+      }
+    },
+    "configCARPbackup2": {
+      "interface": {
+        "pfsync": {
+          "pfsync0": {
+            "syncdev": "en0",
+            "peer": [
+              "[variables('carpLBVM1privateIPAddress')]",
+              "[variables('carpLBVM2privateIPAddress')]"
+            ],
+            "up": true
+          }
+        },
+        "carp": {
+          "carp0": {
+            "vhid": 10,
+            "pass": "[variables('configCARPpass')]",
+            "peer": [
+              "[variables('carpLBVM1privateIPAddress')]",
+              "[variables('carpLBVM2privateIPAddress')]"
+            ],
+            "advskew": 150,
+            "carpdev": "en0",
+            "virtualmac": "no"
+          }
+        }
+      }
+    },
+    "carpLBVM1customData": "[base64(concat('#tnos-config\n', string(union(variables('configSystem'), variables('configPF'), variables('configCARPmaster')))))]",
+    "carpLBVM2customData": "[base64(concat('#tnos-config\n', string(union(variables('configSystem'), variables('configPF'), variables('configCARPbackup1')))))]",
+    "carpLBVM3customData": "[base64(concat('#tnos-config\n', string(union(variables('configSystem'), variables('configPF'), variables('configCARPbackup2')))))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "sku": {
+        "name": "Aligned"
+      },
+      "name": "[variables('carpLBAvsetName')]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "platformUpdateDomainCount": 5,
+        "platformFaultDomainCount": 2,
+        "virtualMachines": [
+          {
+            "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('carpLBVM1Name'))]"
+          },
+          {
+            "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('carpLBVM2Name'))]"
+          },
+          {
+            "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('carpLBVM3Name'))]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('carpLBVM1Name')]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[resourceGroup().location]",
+      "plan": "[variables('imagePlan')]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('carpLBAvsetName'))]"
+        },
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "[variables('imageVersion')]"
+          },
+          "osDisk": {
+            "osType": "Linux",
+            "name": "[variables('carpLBVM1DiskName')]",
+            "createOption": "FromImage",
+            "caching": "None",
+            "managedDisk": {
+              "storageAccountType": "[variables('storageAccountType')]"
+            },
+            "diskSizeGB": 31
+          },
+          "dataDisks": []
+        },
+        "osProfile": {
+          "computerName": "[variables('carpLBVM1Name')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "customData": "[variables('carpLBVM1customData')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[parameters('sshKeyData')]"
+                }
+              ]
+            }
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('carpLBVM1NICName'))]",
+              "properties": {
+                "primary": true
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/availabilitySets', variables('carpLBAvsetName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('carpLBVM1NICName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('carpLBVM2Name')]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[resourceGroup().location]",
+      "plan": "[variables('imagePlan')]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('carpLBAvsetName'))]"
+        },
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "[variables('imageVersion')]"
+          },
+          "osDisk": {
+            "osType": "Linux",
+            "name": "[variables('carpLBVM2DiskName')]",
+            "createOption": "FromImage",
+            "caching": "None",
+            "managedDisk": {
+              "storageAccountType": "[variables('storageAccountType')]"
+            },
+            "diskSizeGB": 31
+          },
+          "dataDisks": []
+        },
+        "osProfile": {
+          "computerName": "[variables('carpLBVM2Name')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "customData": "[variables('carpLBVM2customData')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[parameters('sshKeyData')]"
+                }
+              ]
+            }
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('carpLBVM2NICName'))]",
+              "properties": {
+                "primary": true
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/availabilitySets', variables('carpLBAvsetName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('carpLBVM2NICName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('carpLBVM3Name')]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[resourceGroup().location]",
+      "plan": "[variables('imagePlan')]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('carpLBAvsetName'))]"
+        },
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "[variables('imageVersion')]"
+          },
+          "osDisk": {
+            "osType": "Linux",
+            "name": "[variables('carpLBVM3DiskName')]",
+            "createOption": "FromImage",
+            "caching": "None",
+            "managedDisk": {
+              "storageAccountType": "[variables('storageAccountType')]"
+            },
+            "diskSizeGB": 31
+          },
+          "dataDisks": []
+        },
+        "osProfile": {
+          "computerName": "[variables('carpLBVM3Name')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "customData": "[variables('carpLBVM3customData')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[parameters('sshKeyData')]"
+                }
+              ]
+            }
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('carpLBVM3NICName'))]",
+              "properties": {
+                "primary": true
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/availabilitySets', variables('carpLBAvsetName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('carpLBVM3NICName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/loadBalancers",
+      "name": "[variables('carpLBLBName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "LoadBalancerFrontEnd",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBLBPublicIPName'))]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "BackendPool1"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "LBssh",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 22,
+              "backendPort": 22,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Tcp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBhttp",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 80,
+              "backendPort": 80,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Tcp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBhttps",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 443,
+              "backendPort": 443,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Tcp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBesp500",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 500,
+              "backendPort": 500,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Udp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          },
+          {
+            "name": "LBesp4500",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbIDFE')]"
+              },
+              "frontendPort": 4500,
+              "backendPort": 4500,
+              "enableFloatingIP": true,
+              "idleTimeoutInMinutes": 4,
+              "protocol": "Udp",
+              "loadDistribution": "Default",
+              "backendAddressPool": {
+                "id": "[variables('lbIDBE')]"
+              },
+              "probe": {
+                "id": "[variables('lbIDProbe')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "health",
+            "properties": {
+              "protocol": "Http",
+              "port": "[variables('healthPort')]",
+              "requestPath": "/tornado/health/linkstate/carp0",
+              "intervalInSeconds": 15,
+              "numberOfProbes": 2
+            }
+          }
+        ],
+        "inboundNatRules": [],
+        "outboundNatRules": [],
+        "inboundNatPools": []
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBLBPublicIPName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('carpLBVM1NICName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "[variables('carpLBVM1privateIPAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM1PublicIPName'))]"
+              },
+              "subnet": {
+                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('carpLBVnetName')), '/subnets/', variables('carpLBSubnetName'))]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[variables('lbIDBE')]"
+                }
+              ]
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableIPForwarding": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM1PublicIPName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('carpLBVnetName'))]",
+        "[resourceId('Microsoft.Network/loadBalancers', variables('carpLBLBName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('carpLBVM2NICName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "[variables('carpLBVM2privateIPAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM2PublicIPName'))]"
+              },
+              "subnet": {
+                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('carpLBVnetName')), '/subnets/', variables('carpLBSubnetName'))]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[variables('lbIDBE')]"
+                }
+              ]
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableIPForwarding": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM2PublicIPName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('carpLBVnetName'))]",
+        "[resourceId('Microsoft.Network/loadBalancers', variables('carpLBLBName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('carpLBVM3NICName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "[variables('carpLBVM3privateIPAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM3PublicIPName'))]"
+              },
+              "subnet": {
+                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('carpLBVnetName')), '/subnets/', variables('carpLBSubnetName'))]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[variables('lbIDBE')]"
+                }
+              ]
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableIPForwarding": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('carpLBVM3PublicIPName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('carpLBVnetName'))]",
+        "[resourceId('Microsoft.Network/loadBalancers', variables('carpLBLBName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('carpLBVM1PublicIPName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('carpLBVM2PublicIPName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('carpLBVM3PublicIPName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('carpLBLBPublicIPName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('carpLBVnetName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('carpLBVnetPrefix')]"
+          ]
+        },
+        "dhcpOptions": {
+          "dnsServers": []
+        },
+        "subnets": [
+          {
+            "name": "[variables('carpLBSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('carpLBSubnetPrefix')]"
+            }
+          }
+        ],
+        "virtualNetworkPeerings": []
+      },
+      "dependsOn": []
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "itemDisplayName": "Esdenera CARP-LB cluster",
+  "description": "Redundant Esdenera Firewall in a CARP cluster.",
+  "summary": "Two Esdenera VMs with Azure load-balancer and floating IP.",
+  "githubUsername": "Esdenera",
+  "dateUpdated": "2017-07-14"
+}
