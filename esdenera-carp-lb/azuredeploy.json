@@ -34,7 +34,6 @@
     "carpLBVM2privateIPAddress": "10.42.0.5",
     "carpLBVnetPrefix": "10.0.0.0/8",
     "carpLBSubnetPrefix": "10.42.0.0/24",
-    "healthIface": "carp0",
     "healthPort": 8444,
     "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('carpLBLBName'))]",
     "lbIDFE": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontEnd')]",
@@ -438,7 +437,7 @@
             "properties": {
               "protocol": "Http",
               "port": "[variables('healthPort')]",
-              "requestPath": "[concat('/tornado/health/linkstate/', variables('healthIface'))]",
+              "requestPath": "/tornado/health/linkstate/carp0",
               "intervalInSeconds": 15,
               "numberOfProbes": 2
             }
