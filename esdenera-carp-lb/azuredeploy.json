@@ -147,8 +147,8 @@
             }
         }
     },
-    "carpLBVM1customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPmaster'), '...\n'))]",
-    "carpLBVM2customData": "[base64(concat('#tnos-config\n', variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPbackup'), '...\n'))]"
+    "carpLBVM1customData": "[base64(concat('#tnos-config\n', string(union(variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPmaster')))))]",
+    "carpLBVM2customData": "[base64(concat('#tnos-config\n', string(union(variables('configPF'), variables('configHealth'), variables('configHosts'), variables('configCARPbackup')))))]"
   },
   "resources": [
     {
