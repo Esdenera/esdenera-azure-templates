@@ -44,7 +44,7 @@
     "imagePublisher": "esdenera",
     "imageOffer": "esdenera-firewall-3",
     "imageSKU": "fwcm1",
-    "imageVersion": "3.2.00",
+    "imageVersion": "3.2.01",
     "imageReference": {
       "publisher": "[variables('imagePublisher')]",
       "offer": "[variables('imageOffer')]",
