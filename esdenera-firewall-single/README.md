@@ -7,6 +7,6 @@
   <img src="http://armviz.io/visualizebutton.png"/>
 </a>
 
-One Esdenera VM with Azure Network Security Group (NSG).
+One Esdenera Firewall VM with Azure Network Security Group (NSG).
 
 > THIS IS AN EXPERIMENTAL TEMPLATE.
