@@ -1,0 +1,228 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "defaultValue": "azure-user",
+      "type": "String",
+      "metadata": {
+        "description": "Admin username"
+      }
+    },
+    "sshKeyData": {
+      "type": "String",
+      "metadata": {
+        "description": "SSH RSA public key as a string"
+      }
+    }
+  },
+  "variables": {
+    "fwVnetName": "fwVnet",
+    "fwSubnetName": "fwSubnet",
+    "fwNSGName": "fwNSG",
+    "fwVM1DiskName": "fwVM1_osdisk",
+    "fwVM1NICName": "fwVM1_NIC",
+    "fwVM1PublicIPName": "fwVM1_PublicIP",
+    "fwVM1Name": "fwVM1",
+    "fwVM1privateIPAddress": "10.42.0.4",
+    "fwVnetPrefix": "10.0.0.0/8",
+    "fwSubnetPrefix": "10.42.0.0/24",
+    "vmSize": "Standard_A2",
+    "storageAccountType": "Standard_LRS",
+    "imagePublisher": "esdenera",
+    "imageOffer": "esdenera-firewall-3",
+    "imageSKU": "fwcm1",
+    "imageVersion": "3.2.01",
+    "imageReference": {
+      "publisher": "[variables('imagePublisher')]",
+      "offer": "[variables('imageOffer')]",
+      "sku": "[variables('imageSKU')]",
+      "version": "[variables('imageVersion')]"
+    },
+    "imagePlan": {
+      "name": "[variables('imageSKU')]",
+      "product": "[variables('imageOffer')]",
+      "publisher": "[variables('imagePublisher')]"
+    },
+    "configSystem": {
+      "system": {
+        "resolver": {
+          "host-database": {
+            "[variables('fwVM1Name')]": [
+              "[variables('fwVM1privateIPAddress')]"
+            ]
+          }
+        }
+      }
+    },
+    "fwVM1customData": "[base64(concat('#tnos-config\n', string(variables('configSystem'))))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('fwVM1Name')]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[resourceGroup().location]",
+      "plan": "[variables('imagePlan')]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "[variables('imageVersion')]"
+          },
+          "osDisk": {
+            "osType": "Linux",
+            "name": "[variables('fwVM1DiskName')]",
+            "createOption": "FromImage",
+            "caching": "None",
+            "managedDisk": {
+              "storageAccountType": "[variables('storageAccountType')]"
+            },
+            "diskSizeGB": 31
+          },
+          "dataDisks": []
+        },
+        "osProfile": {
+          "computerName": "[variables('fwVM1Name')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "customData": "[variables('fwVM1customData')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[parameters('sshKeyData')]"
+                }
+              ]
+            }
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('fwVM1NICName'))]",
+              "properties": {
+                "primary": true
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('fwVM1NICName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('fwVM1NICName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "[variables('fwVM1privateIPAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fwVM1PublicIPName'))]"
+              },
+              "subnet": {
+                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('fwVnetName')), '/subnets/', variables('fwSubnetName'))]"
+              }
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableIPForwarding": false,
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('fwNSGName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('fwVM1PublicIPName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('fwVnetName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups',  variables('fwNSGName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[variables('fwNSGName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "securityRules": [
+          {
+            "name": "default-allow-ssh",
+            "properties": {
+              "description": "Allow SSH",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 1000,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      },
+      "dependsOn": []
+      
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('fwVM1PublicIPName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('fwVnetName')]",
+      "apiVersion": "2017-03-01",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('fwVnetPrefix')]"
+          ]
+        },
+        "dhcpOptions": {
+          "dnsServers": []
+        },
+        "subnets": [
+          {
+            "name": "[variables('fwSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('fwSubnetPrefix')]"
+            }
+          }
+        ],
+        "virtualNetworkPeerings": []
+      },
+      "dependsOn": []
+    }
+  ]
+}
