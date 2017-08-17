@@ -1,0 +1,7 @@
+{
+  "itemDisplayName": "Esdenera Firewall",
+  "description": "Single Esdenera Firewall with NSG.",
+  "summary": "One Esdenera Firewall VM with Azure Network Security Group.",
+  "githubUsername": "Esdenera",
+  "dateUpdated": "2017-08-17"
+}
